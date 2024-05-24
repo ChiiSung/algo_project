@@ -15,6 +15,7 @@ public class GraphAlgorithmGUI extends JFrame {
     private JProgressBar progressBar;
     private int possiblePath;
     private int bruteForceStep;
+    private int timeDelay = 0;
 
     private int[][] graph = new int[][]{
         // Locations:                      0     1      2     3     4     5     6     7     8     9     10    11    12    13    14    15    16    17    18    19    20    21    22
@@ -116,6 +117,7 @@ public class GraphAlgorithmGUI extends JFrame {
             @Override
             public void actionPerformed(ActionEvent e) {
             	shortestPath = null;
+            	shortestDistance = 0;
             	progressBar.setValue(0);
                 graphPanel.repaint();
             }
@@ -124,6 +126,8 @@ public class GraphAlgorithmGUI extends JFrame {
         runAlgorithmButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+            	shortestPath = null;
+            	shortestDistance = 0;
                 runSelectedAlgorithm();
             }
         });
@@ -296,7 +300,7 @@ public class GraphAlgorithmGUI extends JFrame {
                 bruteForceRecursive(distance + graph[layer][i], path, pathNum + 1, i, visited, destination);
                 visited[i] = false; // Backtrack: mark i as unvisited for other paths
                 try {
-                    Thread.sleep(0);
+                    Thread.sleep(timeDelay);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -335,7 +339,7 @@ public class GraphAlgorithmGUI extends JFrame {
                             distances[j] = distances[minDistanceNode] + graph[minDistanceNode][j];
                             parentNodes[j] = minDistanceNode;
                             try {
-								Thread.sleep(0);
+								Thread.sleep(timeDelay);
 							} catch (InterruptedException e) {
 								// TODO Auto-generated catch block
 								e.printStackTrace();
@@ -355,7 +359,7 @@ public class GraphAlgorithmGUI extends JFrame {
                     shortestPath[pathLength++] = currentNode;
                     currentNode = parentNodes[currentNode];
                     try {
-						Thread.sleep(0);
+						Thread.sleep(timeDelay);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -366,8 +370,9 @@ public class GraphAlgorithmGUI extends JFrame {
                 int[] reversedPath = new int[pathLength];
                 for (int i = 0; i < pathLength; i++) {
                     reversedPath[i] = shortestPath[pathLength - i - 1];
+                    shortestDistance += graph[reversedPath[i]][shortestPath[pathLength - i]];
                     try {
-						Thread.sleep(0);
+						Thread.sleep(timeDelay);
 					} catch (InterruptedException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -419,23 +424,21 @@ public class GraphAlgorithmGUI extends JFrame {
                 Arrays.fill(parentNodes, -1);
 
                 // Relax all edges |V| - 1 times
-                for (int i = 0; i < graph.length - 1; i++) {
-                    for (int u = 0; u < graph.length; u++) {
-                        for (int v = 0; v < graph.length; v++) {
-                            if (graph[u][v] != 0 && distances[u] != Integer.MAX_VALUE && distances[u] + graph[u][v] < distances[v]) {
-                                distances[v] = distances[u] + graph[u][v];
-                                parentNodes[v] = u;
-                            }
-                            try {
-								Thread.sleep(0);
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
+                for (int u = 0; u < graph.length; u++) {
+                    for (int v = 0; v < graph.length; v++) {
+                        if (graph[u][v] != 0 && distances[u] != Integer.MAX_VALUE && distances[u] + graph[u][v] < distances[v]) {
+                            distances[v] = distances[u] + graph[u][v];
+                            parentNodes[v] = u;
                         }
+                        try {
+							Thread.sleep(timeDelay);
+						} catch (InterruptedException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
                     }
                     // Update progress bar
-                    progressBar.setValue((int) ((double) i / (double) (graph.length - 1) * 100));
+                    progressBar.setValue((int) ((double) u / (double) (graph.length - 1) * 100));
                 }
 
                 // Check for negative cycles
@@ -447,6 +450,12 @@ public class GraphAlgorithmGUI extends JFrame {
                             JOptionPane.showMessageDialog(GraphAlgorithmGUI.this, "Graph contains a negative cycle.");
                             return;
                         }
+                        try {
+    						Thread.sleep(timeDelay);
+    					} catch (InterruptedException e) {
+    						// TODO Auto-generated catch block
+    						e.printStackTrace();
+    					}
                     }
                 }
 
@@ -457,12 +466,25 @@ public class GraphAlgorithmGUI extends JFrame {
                 while (currentNode != -1) {
                     shortestPath[pathLength++] = currentNode;
                     currentNode = parentNodes[currentNode];
+                    try {
+						Thread.sleep(timeDelay);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
                 }
 
                 // Reverse the path to get the correct order
                 int[] reversedPath = new int[pathLength];
                 for (int i = 0; i < pathLength; i++) {
                     reversedPath[i] = shortestPath[pathLength - i - 1];
+                    shortestDistance += graph[reversedPath[i]][shortestPath[pathLength - i]];
+                    try {
+						Thread.sleep(timeDelay);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
                 }
                 shortestPath = reversedPath;
                 
