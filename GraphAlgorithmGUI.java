@@ -6,6 +6,8 @@ import java.awt.event.ActionListener;
 import java.awt.geom.Point2D;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Collections;
 
 public class GraphAlgorithmGUI extends JFrame {
 
@@ -16,7 +18,7 @@ public class GraphAlgorithmGUI extends JFrame {
     private JProgressBar progressBar;
     private JComboBox<String> startComboBox;
     private JComboBox<String> endComboBox;
-    private SpinnerNumberModel spinnerModel = new SpinnerNumberModel(0, 0, 1000, 1);
+    private SpinnerNumberModel spinnerModel = new SpinnerNumberModel(0, 0, 500, 1);
 	private JSpinner timerTF = new JSpinner(spinnerModel);
     private int possiblePath;
     private int bruteForceStep;
@@ -221,6 +223,11 @@ public class GraphAlgorithmGUI extends JFrame {
             int from = shortestPath[i];
             int to = shortestPath[i + 1];
 
+            // Ensure valid indices
+            if (from == -1 || to == -1) {
+                break;  // Exit the loop if an invalid index is found
+            }
+
             // Calculate adjusted coordinates for the shortest path lines
             int x1 = (int) ((coordinates[from].y - minLon) / (maxLon - minLon) * width) + 40;  // Add margin
             int y1 = (int) ((maxLat - coordinates[from].x) / (maxLat - minLat) * height) + 40;  // Add margin and reflect Y-axis
@@ -361,6 +368,9 @@ public class GraphAlgorithmGUI extends JFrame {
 
                 for (int i = 0; i < graph.length - 1; i++) {
                     int minDistanceNode = getMinDistanceNode(distances, visited);
+                    if (minDistanceNode == -1) {
+                        break;  // If no minimum distance node is found, break the loop
+                    }
                     visited[minDistanceNode] = true;
 
                     for (int j = 0; j < graph.length; j++) {
@@ -368,13 +378,26 @@ public class GraphAlgorithmGUI extends JFrame {
                                 distances[minDistanceNode] + graph[minDistanceNode][j] < distances[j]) {
                             distances[j] = distances[minDistanceNode] + graph[minDistanceNode][j];
                             parentNodes[j] = minDistanceNode;
+
+                            // Update the shortestPath for drawing purposes
+                            reconstructShortestPath(parentNodes, j);
+
+                            // Repaint the graph panel to show the current path
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    graphPanel.repaint();
+                                }
+                            });
+
+                            try {
+                                Thread.sleep(timeDelay);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
                         }
                     }
-                    try {
-                        Thread.sleep(timeDelay);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
+
                     // If the destination node is reached, break the loop
                     if (minDistanceNode == destinationNode) {
                         break;
@@ -384,31 +407,8 @@ public class GraphAlgorithmGUI extends JFrame {
                     progressBar.setValue((int) ((double) i / (double) (graph.length - 1) * 100));
                 }
 
-                // Reconstruct the shortest path
-                shortestPath = new int[graph.length];
-                int currentNode = destinationNode;
-                int pathLength = 0;
-                shortestDistance = 0;
-
-                while (currentNode != -1) {
-                    shortestPath[pathLength++] = currentNode;
-                    currentNode = parentNodes[currentNode];
-                }
-
-                // Reverse the path to get the correct order
-                int[] reversedPath = new int[pathLength];
-                for (int i = 0; i < pathLength; i++) {
-                    reversedPath[i] = shortestPath[pathLength - i - 1];
-                    if (i > 0) {
-                        shortestDistance += graph[reversedPath[i - 1]][reversedPath[i]];
-                    }
-                    try {
-                        Thread.sleep(timeDelay);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                shortestPath = reversedPath;
+                // Final path reconstruction for the destination node
+                reconstructShortestPath(parentNodes, destinationNode);
 
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
@@ -432,13 +432,30 @@ public class GraphAlgorithmGUI extends JFrame {
                 minDistance = distances[i];
                 minDistanceNode = i;
             }
-            try {
-                Thread.sleep(timeDelay);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
         }
         return minDistanceNode;
+    }
+
+    private void reconstructShortestPath(int[] parentNodes, int destinationNode) {
+        List<Integer> pathList = new ArrayList<>();
+        int currentNode = destinationNode;
+
+        while (currentNode != -1) {
+            pathList.add(currentNode);
+            currentNode = parentNodes[currentNode];
+        }
+
+        Collections.reverse(pathList);
+
+        shortestPath = new int[pathList.size()];
+        for (int i = 0; i < pathList.size(); i++) {
+            shortestPath[i] = pathList.get(i);
+        }
+
+        shortestDistance = 0;
+        for (int i = 0; i < shortestPath.length - 1; i++) {
+            shortestDistance += graph[shortestPath[i]][shortestPath[i + 1]];
+        }
     }
 
     //Bellman Ford Algorithm
@@ -468,6 +485,16 @@ public class GraphAlgorithmGUI extends JFrame {
                         if (distances[u] != Integer.MAX_VALUE && distances[u] + weight < distances[v]) {
                             distances[v] = distances[u] + weight;
                             parentNodes[v] = u;
+                            // Update the shortestPath for drawing purposes
+                            reconstructShortestPath(parentNodes, v);
+
+                            // Repaint the graph panel to show the current path
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    graphPanel.repaint();
+                                }
+                            });
                         }
                         try {
                             Thread.sleep(timeDelay);
