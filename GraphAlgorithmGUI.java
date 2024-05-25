@@ -14,6 +14,10 @@ public class GraphAlgorithmGUI extends JFrame {
     private JButton runAlgorithmButton;
     private JPanel graphPanel;
     private JProgressBar progressBar;
+    private JComboBox<String> startComboBox;
+    private JComboBox<String> endComboBox;
+    private SpinnerNumberModel spinnerModel = new SpinnerNumberModel(0, 0, 1000, 1);
+	private JSpinner timerTF = new JSpinner(spinnerModel);
     private int possiblePath;
     private int bruteForceStep;
     private int timeDelay = 0;
@@ -76,10 +80,13 @@ public class GraphAlgorithmGUI extends JFrame {
 
     private int[] shortestPath;
     private int shortestDistance;
+    
+    private int startingPoint = 10;
+    private int destinationPoint = graph.length-1;
 
     public GraphAlgorithmGUI() {
         setTitle("Graph Algorithm GUI");
-        setSize(800, 600);
+        setSize(1280, 800);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -102,8 +109,20 @@ public class GraphAlgorithmGUI extends JFrame {
             }
         };
 
+        // Set up start and end combo boxes
+        String[] stationNames = Arrays.stream(stations).map(s -> s.split(":")[0]).toArray(String[]::new);
+        startComboBox = new JComboBox<>(stationNames);
+        endComboBox = new JComboBox<>(stationNames);
+        endComboBox.setSelectedIndex(graph.length-1);
+
         // Set up layout
         JPanel controlPanel = new JPanel();
+        controlPanel.add(new JLabel("Timer(ms):"));
+        controlPanel.add(timerTF);
+        controlPanel.add(new JLabel("Start:"));
+        controlPanel.add(startComboBox);
+        controlPanel.add(new JLabel("End:"));
+        controlPanel.add(endComboBox);
         controlPanel.add(new JLabel("Select Algorithm:"));
         controlPanel.add(algorithmComboBox);
         controlPanel.add(refreshNodesButton);
@@ -117,9 +136,9 @@ public class GraphAlgorithmGUI extends JFrame {
         refreshNodesButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-            	shortestPath = null;
-            	shortestDistance = 0;
-            	progressBar.setValue(0);
+                shortestPath = null;
+                shortestDistance = 0;
+                progressBar.setValue(0);
                 graphPanel.repaint();
             }
         });
@@ -127,8 +146,8 @@ public class GraphAlgorithmGUI extends JFrame {
         runAlgorithmButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-            	shortestPath = null;
-            	shortestDistance = 0;
+                shortestPath = null;
+                shortestDistance = 0;
                 runSelectedAlgorithm();
             }
         });
@@ -142,7 +161,9 @@ public class GraphAlgorithmGUI extends JFrame {
             double longitude = Double.parseDouble(latLon[1]);
             coordinates[i] = new Point2D.Double(latitude, longitude);
         }
-    }private void drawGraph(Graphics g) {
+    }
+    
+    private void drawGraph(Graphics g) {
         int nodeCount = graph.length;
 
         // Find the min and max latitude and longitude
@@ -216,25 +237,27 @@ public class GraphAlgorithmGUI extends JFrame {
 
     private void runSelectedAlgorithm() {
         String selectedAlgorithm = (String) algorithmComboBox.getSelectedItem();
+        startingPoint = startComboBox.getSelectedIndex();
+        destinationPoint = endComboBox.getSelectedIndex();
+        timeDelay = (int) timerTF.getValue();
         progressBar.setValue(0);
         switch (selectedAlgorithm) {
             case "Brute Force":
-                runBruteForceAlgorithm();
+                runBruteForceAlgorithm(startingPoint, destinationPoint);
                 break;
             case "Dijkstra's Algorithm":
-            	runDijkstraAlgorithm(0);
+            	runDijkstraAlgorithm(startingPoint, destinationPoint);
                 break;
             case "Bellman-Ford Algorithm":
-            	runBellmanFordAlgorithm(0);
+            	runBellmanFordAlgorithm(startingPoint, destinationPoint);
                 break;
         }
     }
-
-    // Brute-force
-    private void runBruteForceAlgorithm() {
-    	possiblePath = 0;
-    	countPossiblePaths(1, 0, new boolean[graph.length], graph.length - 1);
-    	System.out.println(possiblePath);
+    
+    //Brute Force Algorithm
+    private void runBruteForceAlgorithm(int startNode, int destinationNode) {
+        possiblePath = 0;
+        countPossiblePaths(0, startNode, new boolean[graph.length], destinationNode);
         bruteForceStep = 0;
 
         shortestDistance = Integer.MAX_VALUE;
@@ -247,7 +270,12 @@ public class GraphAlgorithmGUI extends JFrame {
         SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
             @Override
             protected Void doInBackground() {
-                bruteForceRecursive(0, new int[graph.length], 1, 0, new boolean[graph.length], graph.length - 1);
+                int[] initialPath = new int[graph.length];
+                initialPath[0] = startNode; // Initialize the path with the start node
+                boolean[] visited = new boolean[graph.length];
+                visited[startNode] = true; // Mark the start node as visited
+
+                bruteForceRecursive(0, initialPath, 1, startNode, visited, destinationNode);
                 return null;
             }
 
@@ -267,8 +295,8 @@ public class GraphAlgorithmGUI extends JFrame {
     }
 
     private void countPossiblePaths(int pathNum, int layer, boolean[] visited, int destination) {
-    	if (pathNum >= graph.length || layer == destination) {
-            return ;
+        if (pathNum >= graph.length || layer == destination) {
+            return;
         }
 
         for (int i = 0; i < graph.length; i++) {
@@ -289,7 +317,7 @@ public class GraphAlgorithmGUI extends JFrame {
                 shortestPath = Arrays.copyOf(path, pathNum); // Update shortestPath with the current path
             }
             return;
-        }	
+        }
 
         for (int i = 0; i < graph.length; i++) {
             if (graph[layer][i] != 0 && !visited[i]) {
@@ -311,16 +339,17 @@ public class GraphAlgorithmGUI extends JFrame {
             progressBar.setValue((int) ((double) bruteForceStep / (double) possiblePath * 100));
         }
     }
+
     
-    //Dijkstra
-    private void runDijkstraAlgorithm(int startNode) {
+    
+    //Dijkstra Algorithm
+    private void runDijkstraAlgorithm(int startNode, int destinationNode) {
         progressBar.setIndeterminate(true);
         new Thread(new Runnable() {
             @Override
             public void run() {
-            	// Start time
                 long startTime = System.currentTimeMillis();
-                
+
                 int[] distances = new int[graph.length];
                 int[] parentNodes = new int[graph.length];
                 boolean[] visited = new boolean[graph.length];
@@ -339,13 +368,16 @@ public class GraphAlgorithmGUI extends JFrame {
                                 distances[minDistanceNode] + graph[minDistanceNode][j] < distances[j]) {
                             distances[j] = distances[minDistanceNode] + graph[minDistanceNode][j];
                             parentNodes[j] = minDistanceNode;
-                            try {
-								Thread.sleep(timeDelay);
-							} catch (InterruptedException e) {
-								// TODO Auto-generated catch block
-								e.printStackTrace();
-							}
                         }
+                    }
+                    try {
+                        Thread.sleep(timeDelay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    // If the destination node is reached, break the loop
+                    if (minDistanceNode == destinationNode) {
+                        break;
                     }
 
                     // Update progress bar
@@ -354,37 +386,34 @@ public class GraphAlgorithmGUI extends JFrame {
 
                 // Reconstruct the shortest path
                 shortestPath = new int[graph.length];
-                int currentNode = graph.length - 1;
+                int currentNode = destinationNode;
                 int pathLength = 0;
+                shortestDistance = 0;
+
                 while (currentNode != -1) {
                     shortestPath[pathLength++] = currentNode;
                     currentNode = parentNodes[currentNode];
-                    try {
-						Thread.sleep(timeDelay);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
                 }
 
                 // Reverse the path to get the correct order
                 int[] reversedPath = new int[pathLength];
                 for (int i = 0; i < pathLength; i++) {
                     reversedPath[i] = shortestPath[pathLength - i - 1];
-                    shortestDistance += graph[reversedPath[i]][shortestPath[pathLength - i]];
+                    if (i > 0) {
+                        shortestDistance += graph[reversedPath[i - 1]][reversedPath[i]];
+                    }
                     try {
-						Thread.sleep(timeDelay);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+                        Thread.sleep(timeDelay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
                 shortestPath = reversedPath;
-                
+
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
                     public void run() {
-                    	progressBar.setValue(100);
+                        progressBar.setValue(100);
                         progressBar.setIndeterminate(false);
                         graphPanel.repaint();
                         displayMinPath(startTime);
@@ -413,119 +442,104 @@ public class GraphAlgorithmGUI extends JFrame {
     }
 
     //Bellman Ford Algorithm
-    private void runBellmanFordAlgorithm(int source) {
-	    progressBar.setIndeterminate(true);
-	    new Thread(new Runnable() {
-	        @Override
-	        public void run() {
-	        	// Start time
-	            long startTime = System.currentTimeMillis();
-	        	
-	            int[] distances = new int[graph.length];
-	            Arrays.fill(distances, Integer.MAX_VALUE);
-	            distances[source] = 0;
-	
-	            int[] parentNodes = new int[graph.length];
-	            Arrays.fill(parentNodes, -1);
-	            
-	            ArrayList<Edge> edges = getAllEdges(graph);
-	
-	            // Relax all edges |V| - 1 times
-	            for (int i = 0; i < graph.length - 1; i++) {
-	                for (Edge edge: edges) {
-	                	int u = edge.getU();
-	                	int v = edge.getV();
-	                	int weight = edge.getWeight();
-	                	if (distances[u] != Integer.MAX_VALUE && distances[u] + weight < distances[v]) {
-	                        distances[v] = distances[u] + weight;
-	                        parentNodes[v] = u;
-	                    }
-	                    try {
-							Thread.sleep(timeDelay);
-						} catch (InterruptedException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
-						}
-	                }
-	                // Update progress bar
-	                progressBar.setValue((int) ((double) i / (double) (graph.length - 1) * 100));
-	            }
-	
-	            // Check for negative cycles
-	            for (Edge edge : edges) {
-	                int u = edge.getU();
-	                int v = edge.getV();
-	                int weight = edge.getWeight();
-	
-	                if (distances[u] != Integer.MAX_VALUE && distances[u] + weight < distances[v]) {
-	                    progressBar.setIndeterminate(false);
-	                    JOptionPane.showMessageDialog(GraphAlgorithmGUI.this, "Graph contains a negative cycle.");
-	                    return;
-	                }
-	
-	                try {
-	                    Thread.sleep(timeDelay);
-	                } catch (InterruptedException e) {
-	                    e.printStackTrace();
-	                }
-	            }
-	
-	            // Reconstruct the shortest path
-	            shortestPath = new int[graph.length];
-	            int currentNode = graph.length - 1;
-	            int pathLength = 0;
-	            while (currentNode != -1) {
-	                shortestPath[pathLength++] = currentNode;
-	                currentNode = parentNodes[currentNode];
-	                try {
-						Thread.sleep(timeDelay);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	            }
-	
-	            // Reverse the path to get the correct order
-	            int[] reversedPath = new int[pathLength];
-	            for (int i = 0; i < pathLength; i++) {
-	                reversedPath[i] = shortestPath[pathLength - i - 1];
-	                shortestDistance += graph[reversedPath[i]][shortestPath[pathLength - i]];
-	                try {
-						Thread.sleep(timeDelay);
-					} catch (InterruptedException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-	            }
-	            shortestPath = reversedPath;
-	            
-	            SwingUtilities.invokeLater(new Runnable() {
-	                @Override
-	                public void run() {
-	                	progressBar.setValue(100);
-	                    progressBar.setIndeterminate(false);
-	                    graphPanel.repaint();
-	                    displayMinPath(startTime);
-	                }
-	            });
-	        }
-	    }).start();
-	}
+    private void runBellmanFordAlgorithm(int source, int destination) {
+        progressBar.setIndeterminate(true);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // Start time
+                long startTime = System.currentTimeMillis();
+                
+                int[] distances = new int[graph.length];
+                Arrays.fill(distances, Integer.MAX_VALUE);
+                distances[source] = 0;
 
-    public void displayMinPath(long startTime) {
-    	String[][] parts = new String[stations.length][2];
-    	for(int i = 0; i < stations.length ; i++) {
-            parts[i] = stations[i].split(": ");
-    	}
-    	String pathLocation = "";
-    	for(int i = 0; i < shortestPath.length ; i++) {
-    		pathLocation += parts[shortestPath[i]][0] + ", ";
-    	}
-        String pathString = pathLocation 
-        		+ " with distance " + shortestDistance + "\n Time Used: " + (System.currentTimeMillis() - startTime) + "ms";
-        JOptionPane.showMessageDialog(GraphAlgorithmGUI.this, "Shortest Path: " + pathString);
+                int[] parentNodes = new int[graph.length];
+                Arrays.fill(parentNodes, -1);
+                
+                ArrayList<Edge> edges = getAllEdges(graph);
+
+                // Relax all edges |V| - 1 times
+                for (int i = 0; i < graph.length - 1; i++) {
+                    for (Edge edge: edges) {
+                        int u = edge.getU();
+                        int v = edge.getV();
+                        int weight = edge.getWeight();
+                        if (distances[u] != Integer.MAX_VALUE && distances[u] + weight < distances[v]) {
+                            distances[v] = distances[u] + weight;
+                            parentNodes[v] = u;
+                        }
+                        try {
+                            Thread.sleep(timeDelay);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    // Update progress bar
+                    progressBar.setValue((int) ((double) i / (double) (graph.length - 1) * 100));
+                }
+
+                // Check for negative cycles
+                for (Edge edge : edges) {
+                    int u = edge.getU();
+                    int v = edge.getV();
+                    int weight = edge.getWeight();
+
+                    if (distances[u] != Integer.MAX_VALUE && distances[u] + weight < distances[v]) {
+                        progressBar.setIndeterminate(false);
+                        JOptionPane.showMessageDialog(GraphAlgorithmGUI.this, "Graph contains a negative cycle.");
+                        return;
+                    }
+
+                    try {
+                        Thread.sleep(timeDelay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // Reconstruct the shortest path
+                shortestPath = new int[graph.length];
+                int currentNode = destination;
+                int pathLength = 0;
+                while (currentNode != -1) {
+                    shortestPath[pathLength++] = currentNode;
+                    currentNode = parentNodes[currentNode];
+                    try {
+                        Thread.sleep(timeDelay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+
+                // Reverse the path to get the correct order
+                int[] reversedPath = new int[pathLength];
+                for (int i = 0; i < pathLength; i++) {
+                    reversedPath[i] = shortestPath[pathLength - i - 1];
+                    if (i > 0) {
+                        shortestDistance += graph[reversedPath[i-1]][reversedPath[i]];
+                    }
+                    try {
+                        Thread.sleep(timeDelay);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+                shortestPath = reversedPath;
+
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressBar.setValue(100);
+                        progressBar.setIndeterminate(false);
+                        graphPanel.repaint();
+                        displayMinPath(startTime);
+                    }
+                });
+            }
+        }).start();
     }
-    
+
     public static ArrayList<Edge> getAllEdges(int[][] graph) {
         ArrayList<Edge> edges = new ArrayList<>();
         for (int u = 0; u < graph.length; u++) {
@@ -546,6 +560,21 @@ public class GraphAlgorithmGUI extends JFrame {
             }
         });
     }
+
+    public void displayMinPath(long startTime) {
+    	String[][] parts = new String[stations.length][2];
+    	for(int i = 0; i < stations.length ; i++) {
+            parts[i] = stations[i].split(": ");
+    	}
+    	String pathLocation = "";
+    	for(int i = 0; i < shortestPath.length ; i++) {
+    		pathLocation += parts[shortestPath[i]][0] + ", ";
+    	}
+        String pathString = pathLocation 
+        		+ " with distance " + shortestDistance + "\n Time Used: " + (System.currentTimeMillis() - startTime) + "ms";
+        JOptionPane.showMessageDialog(GraphAlgorithmGUI.this, "Shortest Path: " + pathString);
+    }
+    
 }
 
 
